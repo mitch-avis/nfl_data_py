@@ -348,7 +348,3 @@ def get_pat(df):
 
 def get_hock(df):
     return __get_player(df, "T.J. Hockenson")
-
-
-if __name__ == "__main__":
-    unittest.main()
