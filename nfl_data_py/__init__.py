@@ -50,7 +50,7 @@ import appdirs
 import numpy as np
 import pandas as pd
 
-from src.config.logger_config import LOGGING_CONFIG
+from nfl_data_py.config.logger_config import LOGGING_CONFIG
 
 # Logger formatting
 dictConfig(LOGGING_CONFIG)

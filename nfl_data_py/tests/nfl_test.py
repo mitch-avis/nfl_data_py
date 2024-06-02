@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src import nfl_data_py as nfl
+import nfl_data_py as nfl
 
 
 class test_pbp(unittest.TestCase):
