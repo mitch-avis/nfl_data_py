@@ -43,18 +43,26 @@ import datetime
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from logging.config import dictConfig
 from typing import Iterable
 
 import appdirs
 import numpy as np
 import pandas as pd
 
+from src.config.logger_config import LOGGING_CONFIG
+
+# Logger formatting
+dictConfig(LOGGING_CONFIG)
+# Create logger
+# LOG = logging.getLogger(__name__)
+
 NFLVERSE_REPO_URL = "https://github.com/nflverse"
 NFLVERSE_RAW_URL = "https://raw.githubusercontent.com/nflverse"
 NFLVERSE_DATA = "/nflverse-data/releases/download"
 NFLVERSE_PBP = "/nflverse-pbp/master"
 NFLDATA = "/nfldata/master/data"
-ESPNSCRAPER_DATA = "/espnscrapeR-data/blob/master/data"
+ESPNSCRAPER_DATA = "/espnscrapeR-data/master/data"
 
 
 def import_pbp_data(
@@ -268,7 +276,7 @@ def import_weekly_data(years, columns=None, downcast=True, thread_requests=False
     if not columns:
         columns = []
 
-    url = f"{NFLVERSE_REPO_URL}{NFLVERSE_DATA}/player_stats" f"/player_stats_{0}.parquet"
+    url = f"{NFLVERSE_REPO_URL}{NFLVERSE_DATA}/player_stats" f"/player_stats"
 
     if thread_requests:
         with ThreadPoolExecutor() as executor:
@@ -278,7 +286,7 @@ def import_weekly_data(years, columns=None, downcast=True, thread_requests=False
             futures_map = {
                 executor.submit(
                     pd.read_parquet,
-                    path=url.format(year),
+                    path=f"{url}_{year}.parquet",
                     columns=columns if columns else None,
                     engine="auto",
                 ): idx
@@ -289,7 +297,9 @@ def import_weekly_data(years, columns=None, downcast=True, thread_requests=False
             data = pd.concat(data)
     else:
         # read weekly data
-        data = pd.concat([pd.read_parquet(url.format(year), engine="auto") for year in years])
+        data = pd.concat(
+            [pd.read_parquet(f"{url}_{year}.parquet", engine="auto") for year in years]
+        )
 
     if columns:
         data = data[columns]
@@ -324,8 +334,8 @@ def import_seasonal_data(years, s_type="REG"):
         raise ValueError("Only REG, ALL, POST allowed for s_type.")
 
     # import weekly data
-    url = f"{NFLVERSE_REPO_URL}{NFLVERSE_DATA}/player_stats/player_stats_{0}.parquet"
-    data = pd.concat([pd.read_parquet(url.format(year), engine="auto") for year in years])
+    url = f"{NFLVERSE_REPO_URL}{NFLVERSE_DATA}/player_stats/player_stats"
+    data = pd.concat([pd.read_parquet(f"{url}_{year}.parquet", engine="auto") for year in years])
 
     # filter to appropriate season_type
     if s_type != "ALL":
@@ -517,15 +527,15 @@ def __import_rosters(release, years, columns=None):
     ):
         raise ValueError("columns input must be a list of strings.")
 
-    # Build the relevant URI for the release type
-    uri = f"{NFLVERSE_REPO_URL}{NFLVERSE_DATA}/"
+    # Build the relevant url for the release type
+    url = f"{NFLVERSE_REPO_URL}{NFLVERSE_DATA}/"
     if release == "seasonal":
-        uri += f"rosters/roster_{0}.parquet"
+        url += "rosters/roster"
     elif release == "weekly":
-        uri += f"weekly_rosters/roster_weekly_{0}.parquet"
+        url += "weekly_rosters/roster_weekly"
 
     # imports rosters for specified years
-    rosters = pd.concat([pd.read_parquet(uri.format(year)) for year in years])
+    rosters = pd.concat([pd.read_parquet((f"{url}_{year}.parquet")) for year in years])
 
     # Post-import processing
     rosters["birth_date"] = pd.to_datetime(rosters.birth_date)
@@ -953,8 +963,8 @@ def import_depth_charts(years):
             raise ValueError("Data not available before 2001.")
 
     # import data
-    url = f"{NFLVERSE_REPO_URL}{NFLVERSE_DATA}/depth_charts/depth_charts_{0}.parquet"
-    df = pd.concat([pd.read_parquet(url.format(year), engine="auto") for year in years])
+    url = f"{NFLVERSE_REPO_URL}{NFLVERSE_DATA}/depth_charts/depth_charts"
+    df = pd.concat([pd.read_parquet(f"{url}_{year}.parquet", engine="auto") for year in years])
 
     return df
 
@@ -980,8 +990,8 @@ def import_injuries(years):
             raise ValueError("Data not available before 2009.")
 
     # import data
-    url = f"{NFLVERSE_REPO_URL}{NFLVERSE_DATA}/injuries/injuries_{0}.parquet"
-    df = pd.concat([pd.read_parquet(url.format(year), engine="auto") for year in years])
+    url = f"{NFLVERSE_REPO_URL}{NFLVERSE_DATA}/injuries/injuries"
+    df = pd.concat([pd.read_parquet(f"{url}_{year}.parquet", engine="auto") for year in years])
 
     return df
 
@@ -1015,7 +1025,7 @@ def import_qbr(years=None, level="nfl", frequency="season"):
         raise ValueError("frequency must be season or weekly")
 
     # import data
-    url = f"{NFLVERSE_REPO_URL}{ESPNSCRAPER_DATA}/qbr-{level}-{frequency}.csv"
+    url = f"{NFLVERSE_RAW_URL}{ESPNSCRAPER_DATA}/qbr-{level}-{frequency}.csv"
     df = pd.read_csv(url)
 
     # filter to desired years
@@ -1079,8 +1089,8 @@ def import_weekly_pfr(s_type, years=None):
     if len(years) == 0:
         years = list(import_seasonal_pfr(s_type).season.unique())
 
-    url = f"{NFLVERSE_REPO_URL}{NFLVERSE_DATA}/pfr_advstats/advstats_week_{0}_{1}.parquet"
-    df = pd.concat([pd.read_parquet(url.format(s_type, year)) for year in years])
+    url = f"{NFLVERSE_REPO_URL}{NFLVERSE_DATA}/pfr_advstats/advstats_week"
+    df = pd.concat([pd.read_parquet(f"{url}_{s_type}_{year}.parquet") for year in years])
 
     return df[df.season.isin(years)] if years else df
 
@@ -1109,9 +1119,8 @@ def import_snap_counts(years):
 
     # import data
 
-    url = f"{NFLVERSE_REPO_URL}{NFLVERSE_DATA}/snap_counts/snap_counts_{0}.parquet"
-
-    df = pd.concat([pd.read_parquet(url.format(year)) for year in years])
+    url = f"{NFLVERSE_REPO_URL}{NFLVERSE_DATA}/snap_counts/snap_counts"
+    df = pd.concat([pd.read_parquet(f"{url}_{year}.parquet") for year in years])
 
     return df
 
@@ -1141,7 +1150,7 @@ def import_ftn_data(years, columns=None, downcast=True, thread_requests=False):
     if min(years) < 2022:
         raise ValueError("Data not available before 2022.")
 
-    url = f"{NFLVERSE_REPO_URL}{NFLVERSE_DATA}/ftn_charting/ftn_charting_{0}.parquet"
+    url = f"{NFLVERSE_REPO_URL}{NFLVERSE_DATA}/ftn_charting/ftn_charting"
 
     if thread_requests:
         with ThreadPoolExecutor() as executor:
@@ -1151,7 +1160,7 @@ def import_ftn_data(years, columns=None, downcast=True, thread_requests=False):
             futures_map = {
                 executor.submit(
                     pd.read_parquet,
-                    path=url.format(year),
+                    path=f"{url}_{year}.parquet",
                     columns=columns if columns else None,
                     engine="auto",
                 ): idx
@@ -1163,7 +1172,10 @@ def import_ftn_data(years, columns=None, downcast=True, thread_requests=False):
     else:
         # read charting data
         data = pd.concat(
-            [pd.read_parquet(url.format(year), engine="auto", columns=columns) for year in years]
+            [
+                pd.read_parquet(f"{url}_{year}.parquet", engine="auto", columns=columns)
+                for year in years
+            ]
         )
 
     # converts float64 to float32, saves ~30% memory
